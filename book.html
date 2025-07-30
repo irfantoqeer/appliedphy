@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Book Flipbook</title>
+
+  <style>
+    body { 
+      margin:0; background:#111; display:flex; flex-direction:column;
+      justify-content:center; align-items:center; height:100vh; overflow:hidden;
+    }
+    #flipbook { 
+      width:90%; height:85%; background:#fff;
+    }
+    .page { 
+      width:100%; height:100%; background:white; 
+      display:flex; justify-content:center; align-items:center; 
+    }
+    img { width:100%; height:auto; }
+
+    /* Navigation buttons */
+    .nav-buttons {
+      display:flex; justify-content:space-between; width:90%; margin-top:5px;
+    }
+    button {
+      background:#007bff; color:white; border:none; padding:10px 20px; 
+      border-radius:6px; font-size:16px; cursor:pointer;
+    }
+    button:disabled {
+      background:#555;
+      cursor:not-allowed;
+    }
+  </style>
+
+  <!-- Required Libraries -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/blasten/turn.js/turn.min.js"></script>
+  <script src="https://mozilla.github.io/pdf.js/build/pdf.js"></script>
+</head>
+<body>
+  <div id="flipbook"></div>
+
+  <!-- Navigation Buttons -->
+  <div class="nav-buttons">
+    <button id="prevBtn">⬅ Previous</button>
+    <button id="nextBtn">Next ➡</button>
+  </div>
+
+  <script>
+    const url = 'book.pdf'; // Path to your PDF
+    const container = document.getElementById('flipbook');
+    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://mozilla.github.io/pdf.js/build/pdf.worker.js';
+
+    // Load PDF and create flipbook
+    pdfjsLib.getDocument(url).promise.then(function(pdf) {
+      let pagesPromises = [];
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        pagesPromises.push(
+          pdf.getPage(i).then(function(page) {
+            let viewport = page.getViewport({scale:1.5});
+            let canvas = document.createElement('canvas');
+            let context = canvas.getContext('2d');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            return page.render({canvasContext: context, viewport: viewport}).promise.then(function() {
+              let div = document.createElement('div');
+              div.classList.add('page');
+              let img = document.createElement('img');
+              img.src = canvas.toDataURL();
+              div.appendChild(img);
+              container.appendChild(div);
+            });
+          })
+        );
+      }
+
+      Promise.all(pagesPromises).then(function() {
+        $("#flipbook").turn({
+          width: 800,
+          height: 600,
+          autoCenter: true
+        });
+
+        // Update buttons on first load
+        updateButtons();
+
+        // Button actions
+        document.getElementById('prevBtn').addEventListener('click', function() {
+          $("#flipbook").turn('previous');
+          updateButtons();
+        });
+        document.getElementById('nextBtn').addEventListener('click', function() {
+          $("#flipbook").turn('next');
+          updateButtons();
+        });
+
+        // Update button states when page changes
+        $("#flipbook").bind("turned", function() {
+          updateButtons();
+        });
+
+        function updateButtons() {
+          let currentPage = $("#flipbook").turn("page");
+          let totalPages = $("#flipbook").turn("pages");
+          document.getElementById('prevBtn').disabled = (currentPage === 1);
+          document.getElementById('nextBtn').disabled = (currentPage === totalPages);
+        }
+      });
+    });
+
+    // Disable right-click and selection
+    document.addEventListener('contextmenu', event => event.preventDefault());
+    document.addEventListener('selectstart', event => event.preventDefault());
+  </script>
+</body>
+</html>
